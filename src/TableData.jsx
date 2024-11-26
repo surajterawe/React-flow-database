@@ -21,6 +21,7 @@ import {
 import { Add, ChevronLeft, Delete, Remove } from "@mui/icons-material";
 import { DataGrid } from "@mui/x-data-grid";
 import { v4 as uuidv4 } from "uuid";
+import { addEdge, applyEdgeChanges } from "@xyflow/react";
 
 const StyledCard = styled(Card)({
   width: "100%",
@@ -68,6 +69,7 @@ export default function TableData({
   setNodes,
   getNode,
   getNodes,
+  setEdges,
   toggleDrawer,
 }) {
   const [columns, setColumns] = React.useState(getNode(data.id)?.data?.columns);
@@ -171,8 +173,8 @@ export default function TableData({
         lookuptableid: column.lookuptableid || "",
         lookupdata: column.lookupdata || [],
       });
-      if(column.type ==="lookup") {
-        setIsLookup(true)
+      if (column.type === "lookup") {
+        setIsLookup(true);
       }
     } else {
       setColumnData({
@@ -215,8 +217,8 @@ export default function TableData({
 
   const saveColumn = () => {
     if (!columnData.columnName) return;
-    if(columnData.type ==="lookup" && columnData.lookuptableid) {
-      return
+    if (columnData.type === "lookup" && columnData.lookuptableid) {
+      return;
     }
 
     if (columnData.type === "choice") {
@@ -249,8 +251,24 @@ export default function TableData({
     }
 
     if (columnData.columnType === "lookup") {
+       const relationshipid = uuidv4()
+      const newEdge = {
+        source: data.id,
+        target: columnData.lookuptableid,
+        data: {
+          displayName: newColumn.headerName,
+          relationType: "oneToMany",
+          relationship: "", 
+          relationshipid,     
+          schemaName: newColumn.field,
+        },
+      };
+
+      setEdges((eds) =>  addEdge(newEdge, eds));
+
       newColumn = {
         ...newColumn,
+        relationshipid,
         lookuptableid: columnData.lookuptableid,
         lookupdata: columnData.lookupdata,
       };
@@ -317,7 +335,6 @@ export default function TableData({
             sx={{
               m: 1,
               width: 300,
-              
             }}
           >
             <Select

@@ -303,6 +303,7 @@ const Tabletreenode = ({ data, isConnectable, selected, id }) => {
               getNode={getNode}
               setNodes={setNodes}
               getNodes={getNodes}
+              setEdges={data.setEdges}
               toggleDrawer={setOpenDrawer}
             />
           </Drawer>

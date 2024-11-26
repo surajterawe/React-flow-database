@@ -146,7 +146,9 @@ const TableDesigner = () => {
   );
 
   const onEdgesChange = useCallback(
-    (changes) => setEdges((eds) => applyEdgeChanges(changes, eds)),
+    (changes) => {
+      return setEdges((eds) => applyEdgeChanges(changes, eds));
+    },
     [setEdges]
   );
 
@@ -173,6 +175,7 @@ const TableDesigner = () => {
         ...newTabledata,
         currentTable,
         setCurrentTable,
+        setEdges,
       },
     };
     setNodes((prev) => [...prev, newNode]);
@@ -188,21 +191,20 @@ const TableDesigner = () => {
 
   const onConnect = useCallback(
     (params) => {
-      const isPresent = nodes
-        .some((node) =>
-          node.data.columns.some(
-            (value) =>
-              value?.lookuptableid === params.source ||
-              value?.lookuptableid === params.target
-          )
-        );
-  
+      const isPresent = nodes.some((node) =>
+        node.data.columns.some(
+          (value) =>
+            value?.lookuptableid === params.source ||
+            value?.lookuptableid === params.target
+        )
+      );
+
       if (!isPresent) {
         setTempConnection(params); // Temporary storage for handling dialogs or further actions
-        setIsDialogOpen(true);    // Open a confirmation dialog or handle as needed
+        setIsDialogOpen(true); // Open a confirmation dialog or handle as needed
       } else {
         // If the connection is invalid, do nothing (React Flow won't add the edge)
-        return false; 
+        return false;
       }
     },
     [nodes]
@@ -216,6 +218,7 @@ const TableDesigner = () => {
 
   const handleSubmit = () => {
     const { relationType, displayName, schemaName, relationship } = formData;
+    const relationshipid = uuidv4();
     let newColumn = {
       field: schemaName,
       headerName: displayName,
@@ -225,9 +228,11 @@ const TableDesigner = () => {
       width: 130,
       sortable: true,
       editable: true,
-      lookuptableid: relationType === "manyToOne"
-        ? tempConnection.source
-        : tempConnection.target,
+      relationshipid,
+      lookuptableid:
+        relationType === "manyToOne"
+          ? tempConnection.source
+          : tempConnection.target,
       lookupdata: nodes
         .find(
           (item) =>
@@ -242,16 +247,29 @@ const TableDesigner = () => {
     };
     setNodes((nodes) =>
       nodes.map((node) =>
-        node.id === (relationType === "manyToOne"
+        node.id ===
+        (relationType === "manyToOne"
           ? tempConnection.target
           : tempConnection.source)
-          ? { ...node, data: { ...node.data, columns: [...node.data.columns , newColumn] } }
+          ? {
+              ...node,
+              data: {
+                ...node.data,
+                columns: [...node.data.columns, newColumn],
+              },
+            }
           : node
       )
     );
     const newEdge = {
       ...tempConnection,
-      data: { relationType, displayName, schemaName, relationship },
+      data: {
+        relationType,
+        relationshipid,
+        displayName,
+        schemaName,
+        relationship,
+      },
     };
 
     setEdges((eds) => addEdge(newEdge, eds));
@@ -264,8 +282,6 @@ const TableDesigner = () => {
       relationship: "",
     });
   };
-
-
 
   const handleClose = () => {
     setIsDialogOpen(false);
@@ -293,6 +309,29 @@ const TableDesigner = () => {
 
   const handleDeleteEdge = () => {
     setEdges((eds) => eds.filter((e) => e.id !== edgeMenuPosition.edge.id));
+    const currentNodes = nodes?.map((items) => {
+      if (
+        items.data.columns.some(
+          (value) =>
+            value.relationshipid === edgeMenuPosition.edge.data.relationshipid
+        )
+      ) {
+        return {
+          ...items,
+          data: {
+            ...items.data,
+            columns: items.data.columns.filter(
+              (item) =>
+                item.relationshipid !==
+                edgeMenuPosition.edge.data.relationshipid
+            ),
+          },
+        };
+      } else {
+        return items;
+      }
+    });
+    setNodes([...currentNodes]);
     setEdgeMenuPosition(null); // Close the edge menu
   };
 
@@ -303,7 +342,6 @@ const TableDesigner = () => {
           Add Table
         </Button>
       </Box>
-
       <ReactFlow
         style={{
           background: "#F5F5F5",
