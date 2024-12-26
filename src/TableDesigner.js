@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import {
   ReactFlow,
   addEdge,
@@ -152,6 +152,8 @@ const TableDesigner = () => {
     [setEdges]
   );
 
+
+
   const handleAddTable = () => {
     const id = uuidv4();
     const samelengthName = nodes.filter((items) =>
@@ -189,21 +191,25 @@ const TableDesigner = () => {
     []
   );
 
+  console.log(edges)
+
   const onConnect = useCallback(
     (params) => {
       const isPresent = nodes.some((node) =>
         node.data.columns.some(
           (value) =>
-            value?.lookuptableid === params.source ||
-            value?.lookuptableid === params.target
+            (value?.lookuptableid === params.source &&
+            node.id === params.target) || (value?.lookuptableid === params.target &&
+              node.id === params.source) 
         )
       );
+
+      
 
       if (!isPresent) {
         setTempConnection(params); // Temporary storage for handling dialogs or further actions
         setIsDialogOpen(true); // Open a confirmation dialog or handle as needed
       } else {
-        // If the connection is invalid, do nothing (React Flow won't add the edge)
         return false;
       }
     },
