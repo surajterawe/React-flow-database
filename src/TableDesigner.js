@@ -19,15 +19,18 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
   Select,
   MenuItem,
   Divider,
+  FormControl,  
+  FormHelperText,
+
 } from "@mui/material";
 import { Add as AddIcon } from "@mui/icons-material";
 import { v4 as uuidv4 } from "uuid";
 
 import Tabletreenode from "./Tabletreenode";
+import { FormLabelComponent, OutlinedTextfield } from "./Components/TextField";
 
 // Custom styles
 const styles = {
@@ -121,6 +124,13 @@ const TableNode = ({ data }) => {
   );
 };
 
+const initialFormdata = {
+  relationType: "oneToMany",
+  displayName: "",
+  schemaName: "",
+  relationship: "",
+};
+
 // Main Table Designer Component
 const TableDesigner = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -133,13 +143,10 @@ const TableDesigner = () => {
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
   const [tempConnection, setTempConnection] = useState(null);
-  const [formData, setFormData] = useState({
-    relationType: "oneToMany",
-    displayName: "",
-    schemaName: "",
-    relationship: "",
-  });
+  const [formData, setFormData] = useState(initialFormdata);
 
+  const [errors, setErrors] = useState({});
+ 
   const onNodesChange = useCallback(
     (changes) => setNodes((nds) => applyNodeChanges(changes, nds)),
     [setNodes]
@@ -151,8 +158,6 @@ const TableDesigner = () => {
     },
     [setEdges]
   );
-
-
 
   const handleAddTable = () => {
     const id = uuidv4();
@@ -191,20 +196,17 @@ const TableDesigner = () => {
     []
   );
 
-  console.log(edges)
-
   const onConnect = useCallback(
     (params) => {
       const isPresent = nodes.some((node) =>
         node.data.columns.some(
           (value) =>
             (value?.lookuptableid === params.source &&
-            node.id === params.target) || (value?.lookuptableid === params.target &&
-              node.id === params.source) 
+              node.id === params.target) ||
+            (value?.lookuptableid === params.target &&
+              node.id === params.source)
         )
       );
-
-      
 
       if (!isPresent) {
         setTempConnection(params); // Temporary storage for handling dialogs or further actions
@@ -220,9 +222,26 @@ const TableDesigner = () => {
     const { name, value } = event.target;
 
     setFormData((prev) => ({ ...prev, [name]: value }));
+    const error = validateForm(name, value);
+    setErrors(prev => ({
+      ...prev,
+      [name]: error
+    }));
   };
 
   const handleSubmit = () => {
+    const newErrors = {
+      relationType: validateForm('relationType', formData.relationType),
+      displayName: validateForm('displayName', formData.displayName),
+      relationship: validateForm('relationship', formData.relationship)
+    };
+
+    setErrors(newErrors);
+    // Check if there are any errors
+    if (!Object.values(newErrors).every(error => !error)) {
+      return
+    }
+
     const { relationType, displayName, schemaName, relationship } = formData;
     const relationshipid = uuidv4();
     let newColumn = {
@@ -281,18 +300,28 @@ const TableDesigner = () => {
     setEdges((eds) => addEdge(newEdge, eds));
     setIsDialogOpen(false);
     setTempConnection(null);
-    setFormData({
-      relationType: "oneToMany",
-      displayName: "",
-      schemaName: "",
-      relationship: "",
-    });
+    setFormData({ ...initialFormdata });
   };
 
   const handleClose = () => {
     setIsDialogOpen(false);
+    setFormData({ ...initialFormdata });
     setTempConnection(null);
+    setErrors({});
   };
+
+  const deleteListener = (event) => {
+    if (event.key === "Backspace") {
+      handleDeleteEdge();
+    }
+  };
+
+  useEffect(() => {
+    if (edgeMenuPosition) {
+      //if edge is selected and listen backspace key press if yes then delete edge
+      document.addEventListener("keydown", deleteListener);
+    }
+  }, [edgeMenuPosition]);
 
   const handleEdgeClick = (event, edge) => {
     event.stopPropagation(); // Prevent ReactFlow from interpreting this as a click on the flow
@@ -337,8 +366,35 @@ const TableDesigner = () => {
         return items;
       }
     });
+    document.removeEventListener("keydown", deleteListener);
     setNodes([...currentNodes]);
     setEdgeMenuPosition(null); // Close the edge menu
+  };
+
+  const validateForm = (name, value) => {
+    switch (name) {
+      case 'relationType':
+        if (!value) return 'Relationship type is required';
+        return '';
+      
+      case 'displayName':
+        if (!value) return 'Display name is required';
+        if (value.length < 3) return 'Display name must be at least 3 characters';
+        if (value.length > 50) return 'Display name must not exceed 50 characters';
+        if (!/^[a-zA-Z0-9\s]+$/.test(value)) {
+          return 'Display name can only contain letters, numbers and spaces';
+        }
+        return '';
+      
+      case 'relationship':
+        if (!value) return 'Relationship is required';
+        if (value.length < 5) return 'Relationship must be at least 5 characters';
+        if (value.length > 100) return 'Relationship must not exceed 100 characters';
+        return '';
+      
+      default:
+        return '';
+    }
   };
 
   return (
@@ -377,48 +433,65 @@ const TableDesigner = () => {
           <Button onClick={handleDeleteEdge}>Delete</Button>
         </Box>
       )}
-
       <Dialog open={isDialogOpen} onClose={handleClose}>
         <DialogTitle>Connect Tables</DialogTitle>
         <DialogContent>
-          <Select
-            fullWidth
-            name="relationType"
-            value={formData.relationType}
-            onChange={handleFormChange}
-            sx={{ mb: 2 }}
-          >
-            <MenuItem value="oneToMany">One to Many</MenuItem>
-            <MenuItem value="manyToOne">Many to One</MenuItem>
-          </Select>
+          <FormControl fullWidth error={!!errors.relationType}>
+            <FormLabelComponent>Relationship type</FormLabelComponent>
+            <Select
+              fullWidth
+              name="relationType"
+              value={formData.relationType}
+              onChange={handleFormChange}
+              sx={{ mb: errors.relationType ? 0 : 2 }}
+            >
+              <MenuItem value="oneToMany">One to Many</MenuItem>
+              <MenuItem value="manyToOne">Many to One</MenuItem>
+            </Select>
+            {errors.relationType && (
+              <FormHelperText sx={{ mb: 2 }}>
+                {errors.relationType}
+              </FormHelperText>
+            )}
+          </FormControl>
+
           <Divider orientation="horizontal" variant="middle" flexItem />
-          <TextField
+           <Box display={"flex"} flexDirection={"column"} minWidth={"40vw"} gap="20px" margin={"10px 0px"}>           
+           <OutlinedTextfield
             fullWidth
             label="Display Name"
             name="displayName"
             value={formData.displayName}
             onChange={handleFormChange}
+            error={!!errors.displayName}
+            helperText={errors.displayName}
             sx={{ mb: 2 }}
           />
-          <TextField
+
+          <OutlinedTextfield
             fullWidth
             label="Schema Name"
             name="schemaName"
-            readonly
+            InputProps={{ readOnly: true }}
             value={formData.displayName.replaceAll(" ", "").toLowerCase()}
             sx={{ mb: 2 }}
           />
-          <TextField
+
+          <OutlinedTextfield
             fullWidth
             label="Relationship"
             name="relationship"
             value={formData.relationship}
             onChange={handleFormChange}
+            error={!!errors.relationship}
+            helperText={errors.relationship}
           />
+          </Box>
+          
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose}>Cancel</Button>
-          <Button onClick={handleSubmit}>Submit</Button>
+          <Button variant="contained" onClick={handleSubmit}>Submit</Button>
         </DialogActions>
       </Dialog>
     </Box>

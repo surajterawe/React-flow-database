@@ -165,10 +165,18 @@
 
 import React from 'react'
 import TableDesigner from './TableDesigner'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import Compoanents from './Components'
 
 const App = () => {
   return (
-    <TableDesigner />
+    // Routes
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<TableDesigner />} />
+        <Route path="/ui-components" element={<Compoanents />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
 
